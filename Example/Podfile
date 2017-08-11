@@ -1,6 +1,0 @@
-use_frameworks!
-target 'MP42TS_Tests' do
-  pod 'MP42TS', :path => '../'
-  
-  
-end
