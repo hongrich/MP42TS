@@ -1,4 +1,12 @@
 #import "MP42TS.h"
+
+#define GPAC_CONFIG_DARWIN
+#define GPAC_IPHONE
+#define GPAC_AMR_IN_STANDALONE
+#define GPAC_DISABLE_3D
+#define GPAC_MODULE_CUSTOM_LOAD
+#define GPAC_DISABLE_ISOM_WRITE
+
 #include <gpac/media_tools.h>
 #include <gpac/constants.h>
 #include <gpac/mpegts.h>
@@ -10,8 +18,6 @@
 #ifdef GPAC_DISABLE_ISOM
 #error "Cannot compile MP42TS if GPAC is not built with ISO File Format support"
 #endif
-
-#define GPAC_DISABLE_ISOM_WRITE
 
 #define PCR_MS 100
 #define PSI_REFRESH_RATE GF_M2TS_PSI_DEFAULT_REFRESH_RATE

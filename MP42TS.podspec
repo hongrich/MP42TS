@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'MP42TS'
-  s.version          = '0.1.1'
+  s.version          = '0.1.2'
   s.summary          = 'MP42TS allows you to convert MP4 files to TS files.'
 
   s.description      = <<-DESC
@@ -15,8 +15,4 @@ MP42TS allows you to convert MP4 files into TS files. This library depends on li
 
   s.source_files = 'MP42TS/Classes/**/*'
   s.dependency 'GPAC4iOS'
-
-  s.xcconfig = {
-    "GCC_PREPROCESSOR_DEFINITIONS" => 'GPAC_CONFIG_DARWIN GPAC_IPHONE GPAC_AMR_IN_STANDALONE GPAC_DISABLE_3D GPAC_MODULE_CUSTOM_LOAD'
-  }
 end
