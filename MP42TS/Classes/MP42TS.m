@@ -44,14 +44,17 @@ typedef struct {
 static GF_Err mp4_input_ctrl(GF_ESInterface *ifce, u32 act_type, void *param)
 {
     GF_ESIMP4 *priv = (GF_ESIMP4 *)ifce->input_udta;
-    if (!priv) return GF_BAD_PARAM;
+    if (!priv) {
+        return GF_BAD_PARAM;
+    }
 
     switch (act_type) {
         case GF_ESI_INPUT_DATA_FLUSH:
         {
             GF_ESIPacket pck;
-            if (!priv->sample)
+            if (!priv->sample) {
                 priv->sample = gf_isom_get_sample(priv->mp4, priv->track, priv->sample_number+1, NULL);
+            }
 
             if (!priv->sample) {
                 return GF_IO_ERR;
@@ -60,7 +63,9 @@ static GF_Err mp4_input_ctrl(GF_ESInterface *ifce, u32 act_type, void *param)
             memset(&pck, 0, sizeof(GF_ESIPacket));
 
             pck.flags = GF_ESI_DATA_AU_START | GF_ESI_DATA_HAS_CTS;
-            if (priv->sample->IsRAP) pck.flags |= GF_ESI_DATA_AU_RAP;
+            if (priv->sample->IsRAP) {
+                pck.flags |= GF_ESI_DATA_AU_RAP;
+            }
             pck.cts = priv->sample->DTS + priv->ts_offset;
 
             pck.dts = pck.cts;
@@ -104,7 +109,7 @@ static GF_Err mp4_input_ctrl(GF_ESInterface *ifce, u32 act_type, void *param)
     }
 }
 
-static void fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFile *mp4, u32 track_num)
+static GF_Err fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFile *mp4, u32 track_num)
 {
     GF_ESIMP4 *priv;
     char *_lan;
@@ -115,7 +120,7 @@ static void fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFi
 
     GF_SAFEALLOC(priv, GF_ESIMP4);
     if (!priv) {
-        return;
+        return GF_OUT_OF_MEM;
     }
 
     priv->mp4 = mp4;
@@ -170,10 +175,13 @@ static void fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFi
     ifce->duration = gf_isom_get_media_timescale(mp4, track_num);
     avg_rate = gf_isom_get_media_data_size(mp4, track_num);
     avg_rate *= ifce->timescale * 8;
-    if (0!=(duration=gf_isom_get_media_duration(mp4, track_num)))
+    if (0!=(duration=gf_isom_get_media_duration(mp4, track_num))) {
         avg_rate /= duration;
+    }
 
-    if (gf_isom_has_time_offset(mp4, track_num)) ifce->caps |= GF_ESI_SIGNAL_DTS;
+    if (gf_isom_has_time_offset(mp4, track_num)) {
+        ifce->caps |= GF_ESI_SIGNAL_DTS;
+    }
 
     ifce->bit_rate = (u32) avg_rate;
     ifce->duration = (Double) (s64) gf_isom_get_media_duration(mp4, track_num);
@@ -181,8 +189,9 @@ static void fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFi
 
     ifce->input_ctrl = mp4_input_ctrl;
     if (priv != ifce->input_udta) {
-        if (ifce->input_udta)
+        if (ifce->input_udta) {
             gf_free(ifce->input_udta);
+        }
         ifce->input_udta = priv;
     }
 
@@ -200,12 +209,15 @@ static void fill_isom_es_ifce(M2TSSource *source, GF_ESInterface *ifce, GF_ISOFi
     if (ref_count > 0) {
         gf_isom_get_reference_ID(mp4, track_num, GF_ISOM_REF_SCAL, (u32) ref_count, &ifce->depends_on_stream);
     }
+
+    return GF_OK;
 }
 
-static BOOL openSource(M2TSSource *source, const char *src)
+static GF_Err openSource(M2TSSource *source, const char *src)
 {
     memset(source, 0, sizeof(M2TSSource));
 
+    GF_Err error;
     u32 i;
     u32 nb_tracks;
     u32 first_audio = 0;
@@ -220,10 +232,14 @@ static BOOL openSource(M2TSSource *source, const char *src)
 
     for (i=0; i<nb_tracks; i++) {
         Bool check_deps = 0;
-        if (gf_isom_get_media_type(source->mp4, i+1) == GF_ISOM_MEDIA_HINT)
+        if (gf_isom_get_media_type(source->mp4, i+1) == GF_ISOM_MEDIA_HINT) {
             continue;
+        }
 
-        fill_isom_es_ifce(source, &source->streams[i], source->mp4, i+1);
+        error = fill_isom_es_ifce(source, &source->streams[i], source->mp4, i+1);
+        if (error != GF_OK) {
+            return error;
+        }
         if (min_offset > ((GF_ESIMP4 *)source->streams[i].input_udta)->ts_offset) {
             min_offset = ((GF_ESIMP4 *)source->streams[i].input_udta)->ts_offset;
             min_offset_timescale = source->streams[i].timescale;
@@ -240,7 +256,9 @@ static BOOL openSource(M2TSSource *source, const char *src)
                 }
                 break;
             case GF_STREAM_AUDIO:
-                if (!first_audio) first_audio = i+1;
+                if (!first_audio) {
+                    first_audio = i+1;
+                }
                 check_deps = 1;
                 break;
             default:
@@ -254,8 +272,9 @@ static BOOL openSource(M2TSSource *source, const char *src)
             u32 k;
             Bool found_dep = 0;
             for (k=0; k<nb_tracks; k++) {
-                if (gf_isom_get_media_type(source->mp4, k+1) != GF_ISOM_MEDIA_OD)
+                if (gf_isom_get_media_type(source->mp4, k+1) != GF_ISOM_MEDIA_OD) {
                     continue;
+                }
 
                 /*this stream is not refered to by any OD, send as regular PES*/
                 if (gf_isom_has_track_reference(source->mp4, k+1, GF_ISOM_REF_OD, gf_isom_get_track_id(source->mp4, i+1) )==1) {
@@ -270,8 +289,12 @@ static BOOL openSource(M2TSSource *source, const char *src)
     }
 
     /*if no visual PCR found, use first audio*/
-    if (!source->pcr_idx) source->pcr_idx = first_audio;
-    if (!source->pcr_idx) source->pcr_idx = first_other;
+    if (!source->pcr_idx) {
+        source->pcr_idx = first_audio;
+    }
+    if (!source->pcr_idx) {
+        source->pcr_idx = first_other;
+    }
     if (source->pcr_idx) {
         GF_ESIMP4 *priv;
         source->pcr_idx-=1;
@@ -287,15 +310,16 @@ static BOOL openSource(M2TSSource *source, const char *src)
         }
     }
 
-    return YES;
+    return GF_OK;
 }
 
 #pragma mark - MP42TS
 
 @implementation MP42TS
 
-+ (nullable NSData *)convertMP4ToTS:(nonnull NSData *)mp4Data
++ (nullable NSData *)convertMP4ToTS:(nonnull NSData *)mp4Data error:(NSError * _Nullable *)error
 {
+    GF_Err err = GF_OK;
     NSData *output = nil;
     NSMutableData *outputData = [NSMutableData data];
 
@@ -305,7 +329,8 @@ static BOOL openSource(M2TSSource *source, const char *src)
     u32 j;
 
     NSString *memPath = [NSString stringWithFormat:@"gmem://%@@%p", @(mp4Data.length), mp4Data.bytes];
-    if (!openSource(&source, memPath.UTF8String)) {
+    err = openSource(&source, memPath.UTF8String);
+    if (err != GF_OK)) {
         goto exit;
     }
 
@@ -314,6 +339,7 @@ static BOOL openSource(M2TSSource *source, const char *src)
     /***************************/
     muxer = gf_m2ts_mux_new(0, PSI_REFRESH_RATE, 0);
     if (!muxer) {
+        err = GF_OUT_OF_MEM;
         goto exit;
     }
     gf_m2ts_mux_use_single_au_pes_mode(muxer, GF_M2TS_PACK_AUDIO_ONLY);
@@ -328,7 +354,9 @@ static BOOL openSource(M2TSSource *source, const char *src)
     if (program) {
         for (j=0; j<source.nb_streams; j++) {
             /*likely an OD stream disabled*/
-            if (!source.streams[j].stream_type) continue;
+            if (!source.streams[j].stream_type) {
+                continue;
+            }
 
             Bool force_pes_mode = 0;
             gf_m2ts_program_stream_add(program, &source.streams[j], STARTING_PID+j+1, (source.pcr_idx==j) ? 1 : 0, force_pes_mode);
@@ -362,6 +390,10 @@ static BOOL openSource(M2TSSource *source, const char *src)
     output = outputData;
 
 exit:
+    if (err != GF_OK && error != nil) {
+        *error = [NSError errorWithDomain:@"MP42TSErrorDomain" code:err userInfo:nil];
+    }
+
     if (muxer) {
         gf_m2ts_mux_del(muxer);
     }
