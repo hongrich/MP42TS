@@ -330,7 +330,7 @@ static GF_Err openSource(M2TSSource *source, const char *src)
 
     NSString *memPath = [NSString stringWithFormat:@"gmem://%@@%p", @(mp4Data.length), mp4Data.bytes];
     err = openSource(&source, memPath.UTF8String);
-    if (err != GF_OK)) {
+    if (err != GF_OK) {
         goto exit;
     }
 

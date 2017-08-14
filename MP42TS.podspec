@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'MP42TS'
-  s.version          = '0.1.3'
+  s.version          = '0.1.4'
   s.summary          = 'MP42TS allows you to convert MP4 files to TS files.'
 
   s.description      = <<-DESC
